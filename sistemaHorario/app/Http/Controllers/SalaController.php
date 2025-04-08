@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Sala;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class SalaController extends Controller
 {
@@ -14,16 +15,16 @@ class SalaController extends Controller
     }
 
     public function store(Request $request)
-{
-    $validatedData = $request->validate([
-        'nome' => 'required|string|max:255',
-        'capacidade' => 'required|integer|min:1',
-    ]);
+    {
+        $validatedData = $request->validate([
+            'nome' => 'required|string|max:255|unique:salas,nome',
+            'capacidade' => 'required|integer|min:1',
+        ]);
 
-    $sala = Sala::create($validatedData);
+        $sala = Sala::create($validatedData);
 
-    return response()->json($sala, 201);
-}
+        return response()->json($sala, 201);
+    }
 
     public function show(Sala $sala)
     {
@@ -32,20 +33,20 @@ class SalaController extends Controller
 
     public function update(Request $request, Sala $sala)
     {
-        $request->validate([
-            'nome' => 'required|string|max:255',
+        $validatedData = $request->validate([
+            'nome' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('salas')->ignore($sala->id_sala, 'id_sala')
+            ],
             'capacidade' => 'required|integer|min:1',
         ]);
-    
-        $sala->update([
-            'nome' => $request->nome,
-            'capacidade' => $request->capacidade,
-        ]);
-    
+
+        $sala->update($validatedData);
+
         return response()->json($sala, 200);
     }
-    
-
 
     public function destroy(Sala $sala)
     {

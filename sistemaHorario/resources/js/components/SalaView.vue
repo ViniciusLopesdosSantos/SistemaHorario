@@ -7,12 +7,17 @@
     <div class="caixa-cinza">
       <!-- Barra de pesquisa e botões -->
       <div class="barra-superior">
-        <div class="flex items-center gap-6">
-          <input v-model="termoPesquisa" type="text" placeholder="Pesquisar..." class="search-bar" />
-          <button @click="aplicarFiltro" class="filter-btn">
-            <span class="material-icons">tune</span> Filtrar
-          </button>
-        </div>
+        <div class="relative w-60">
+  <input
+    v-model="termoPesquisa"
+    @input="aplicarFiltro"
+    type="text"
+    placeholder="Pesquisar..."
+    class="search-bar w-full"
+  />
+</div>
+
+
         <button @click="abrirModalCriar" class="new-btn">
           <span class="material-icons">add</span> Novo
         </button>
@@ -84,6 +89,8 @@
 
 <script>
 import axios from 'axios'
+import _ from 'lodash'
+import Swal from 'sweetalert2'
 
 export default {
   data() {
@@ -110,21 +117,40 @@ export default {
         console.error('Erro ao buscar salas:', error)
       }
     },
-    aplicarFiltro() {
-      const termo = this.termoPesquisa.toLowerCase()
+    normalizar(texto) {
+      return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    },
+    aplicarFiltro: _.debounce(function () {
+      const termo = this.normalizar(this.termoPesquisa)
       this.salasFiltradas = this.salas.filter(sala =>
-        sala.nome.toLowerCase().includes(termo) ||
-        String(sala.capacidade).includes(termo)
+        this.normalizar(sala.nome).includes(termo) ||
+        sala.capacidade.toString().includes(termo)
       )
+    }, 300),
+    limparFiltro() {
+      this.termoPesquisa = ''
+      this.aplicarFiltro()
     },
     async deletarSala(id) {
-      if (confirm('Tem certeza que deseja excluir esta sala?')) {
+      const confirmacao = await Swal.fire({
+        title: 'Tem certeza?',
+        text: 'Você deseja excluir esta sala?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#FF6F00',
+        cancelButtonColor: '#505050',
+        confirmButtonText: 'Sim, excluir!',
+        cancelButtonText: 'Cancelar'
+      })
+
+      if (confirmacao.isConfirmed) {
         try {
           await axios.delete(`/api/salas/${id}`)
           this.salas = this.salas.filter(sala => sala.id_sala !== id)
           this.aplicarFiltro()
+          Swal.fire('Excluído!', 'A sala foi excluída.', 'success')
         } catch (error) {
-          console.error('Erro ao excluir sala:', error)
+          Swal.fire('Erro!', 'Não foi possível excluir a sala.', 'error')
         }
       }
     },
@@ -148,8 +174,10 @@ export default {
         this.salas.push(res.data)
         this.aplicarFiltro()
         this.fecharModal()
+        Swal.fire('Sucesso!', 'Sala cadastrada com sucesso.', 'success')
       } catch (error) {
-        console.error('Erro ao criar sala:', error)
+        const msg = error.response?.data?.message || 'Erro ao cadastrar sala.'
+        Swal.fire('Erro!', msg, 'error')
       }
     },
     async atualizarSala() {
@@ -161,8 +189,10 @@ export default {
           this.aplicarFiltro()
         }
         this.fecharModal()
+        Swal.fire('Atualizado!', 'Sala atualizada com sucesso.', 'success')
       } catch (error) {
-        console.error('Erro ao atualizar sala:', error)
+        const msg = error.response?.data?.message || 'Erro ao atualizar sala.'
+        Swal.fire('Erro!', msg, 'error')
       }
     }
   },
@@ -171,6 +201,7 @@ export default {
   }
 }
 </script>
+
 
 <style scoped>
 @import url('https://fonts.googleapis.com/icon?family=Material+Icons');
@@ -223,11 +254,13 @@ export default {
   height: 34px;
   border-radius: 15px;
   background: white;
-  padding: 0 15px;
+  padding: 0 30px 0 15px; /* espaço maior à direita */
   font-size: 0.95rem;
   border: none;
   color: black;
+  position: relative; /* não obrigatório, mas pode manter */
 }
+
 
 .search-bar::placeholder {
   color: white;
